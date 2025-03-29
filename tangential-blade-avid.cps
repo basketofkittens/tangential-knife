@@ -95,13 +95,13 @@ var gAbsIncModal = createModal({}, gFormat); // modal group 3 // G90-91
 var sequenceNumber = 0;
 
 //specific section for Tangential Rotary Blade
-var c_rad = toRad(0);  // Current A axis position
+var c_rad = toRad(0);  // Current C axis position
 var isRapid = false;
 
 /**
  Update C position for Tangential Rotary Blade
  */
- function updateC(target_rad, feed) {
+ function updateC(target_rad) {
   var delta_rad = (target_rad-c_rad) //% (2*Math.PI)
 
   //next segment is colinear with current segment. Do nothing
@@ -111,14 +111,41 @@ var isRapid = false;
   
   // Angle between segments is larger than maximum angle. Lift blade, rotate, and plunge back down
   if (Math.abs(delta_rad) > toRad(getProperty("liftAtCorner"))) { 
+    //moveUp();
+    //gMotionModal.reset();
+    //writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+    //moveDown();
+    //c_rad = target_rad;
+    
     moveUp();
     gMotionModal.reset();
-    writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+    gAbsIncModal.reset();
+
+    // Minimize excess rotations
+    if (c_rad < Math.PI) {
+        if (target_rad > (c_rad + Math.PI)) {
+            // Relative move to -(c_rad+(2*Math.PI-target_rad))
+            writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(-(c_rad+(2*Math.PI-target_rad)))))
+        } else {
+            // Absolute move to target_rad
+            writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+        }
+    } else {
+        if (target_rad < (c_rad - Math.PI)) {
+            // Relative move to +(target_rad+(2*Math.PI-c_rad))
+            writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg((target_rad+(2*Math.PI-c_rad)))))
+        } else {
+            // Absolute move to target_rad
+            writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+        }
+    }
+    
     moveDown();
     c_rad = target_rad;
+    
   }
   else {  // Angle between segments is smaller than maximum angle. Rotate blade in material
-    writeBlock(gMotionModal.format(1), cOutput.format(toDeg(target_rad)), feedOutput.format(feed));
+    writeBlock(gMotionModal.format(1), cOutput.format(toDeg(target_rad)));
     c_rad = target_rad;
   }
   
@@ -211,7 +238,7 @@ function onLinear(_x, _y, _z, feed) {
   var direction = Vector.diff(target,start);
   //compute orientation of the upcoming segment
   var orientation_rad = direction.getXYAngle();
-  updateC(orientation_rad, feed);
+  updateC(orientation_rad);
   var x = xOutput.format(_x);
   var y = yOutput.format(_y);
   if (x || y) {
@@ -256,7 +283,7 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
     var CD = Vector.diff(OD,OC); //OD-OC = CO+OD = CD -> radius vector from arc center to current position
     var tangent = Vector.cross(CD,Z); //tangent vector to circle in the direction of motion
     var start_dir = tangent.getXYAngle(); //direction of the motion at starting point
-    updateC(start_dir, 0);
+    updateC(start_dir);
     
     // The next three lines can probably be replaced with getCircularSweep()
     //var OA = new Vector(x,y,z);  //vector from origin to arrival
