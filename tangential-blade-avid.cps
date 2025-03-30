@@ -83,7 +83,8 @@ var xOutput = createVariable({prefix:"X"}, xyzFormat);
 var yOutput = createVariable({prefix:"Y"}, xyzFormat);
 var zOutput = createVariable({prefix:"Z"}, xyzFormat);
 
-var cOutput = createVariable({prefix:"C"}, abcFormat);
+//var cOutput = createVariable({prefix:"C"}, abcFormat);
+var cOutput = createOutputVariable({prefix:"C", type:TYPE_ABSOLUTE, cyclicLimit:360, cyclicSign:1}, abcFormat);
 
 var iOutput = createReferenceVariable({prefix:"I"}, xyzFormat);
 var jOutput = createReferenceVariable({prefix:"J"}, xyzFormat);
@@ -111,11 +112,22 @@ var isRapid = false;
   
   // Angle between segments is larger than maximum angle. Lift blade, rotate, and plunge back down
   if (Math.abs(delta_rad) > toRad(getProperty("liftAtCorner"))) { 
-    //moveUp();
-    //gMotionModal.reset();
-    //writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
-    //moveDown();
-    //c_rad = target_rad;
+    
+    // Original
+    writeComment("Current angle: " + toDeg(c_rad) + ", Target angle: " + toDeg(target_rad))
+    
+    moveUp();
+    gMotionModal.reset();
+    writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+    moveDown();
+    c_rad = target_rad;
+    
+    
+    
+    /**
+    // Quadrant aware code to minimize excess rotations
+    
+    writeComment("Current angle: " + toDeg(c_rad) + ", Target angle: " + toDeg(target_rad))
     
     moveUp();
     gMotionModal.reset();
@@ -126,6 +138,7 @@ var isRapid = false;
         if (target_rad > (c_rad + Math.PI)) {
             // Relative move to -(c_rad+(2*Math.PI-target_rad))
             writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(-(c_rad+(2*Math.PI-target_rad)))))
+            writeBlock(gAbsIncModal.format(90))
         } else {
             // Absolute move to target_rad
             writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
@@ -134,6 +147,7 @@ var isRapid = false;
         if (target_rad < (c_rad - Math.PI)) {
             // Relative move to +(target_rad+(2*Math.PI-c_rad))
             writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg((target_rad+(2*Math.PI-c_rad)))))
+            writeBlock(gAbsIncModal.format(90))
         } else {
             // Absolute move to target_rad
             writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
@@ -142,6 +156,7 @@ var isRapid = false;
     
     moveDown();
     c_rad = target_rad;
+    */
     
   }
   else {  // Angle between segments is smaller than maximum angle. Rotate blade in material
