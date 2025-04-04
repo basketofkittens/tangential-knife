@@ -40,8 +40,8 @@ properties = {
   liftAtCorner: {
       title:"Lift Angle", 
       description:"Maximum angle at which the blade is turned in the material. If the angle is larger the blade is lifted and rotated.", 
-      type:"integer", 
-      value: 2
+      type:"angle", 
+      value: 0.5
   },
   minLinearRadius: {
       title:"Minimum Radius", 
@@ -83,8 +83,7 @@ var xOutput = createVariable({prefix:"X"}, xyzFormat);
 var yOutput = createVariable({prefix:"Y"}, xyzFormat);
 var zOutput = createVariable({prefix:"Z"}, xyzFormat);
 
-//var cOutput = createVariable({prefix:"C"}, abcFormat);
-var cOutput = createOutputVariable({prefix:"C", type:TYPE_ABSOLUTE, cyclicLimit:360, cyclicSign:1}, abcFormat);
+var cOutput = createVariable({prefix:"C"}, abcFormat);
 
 var iOutput = createReferenceVariable({prefix:"I"}, xyzFormat);
 var jOutput = createReferenceVariable({prefix:"J"}, xyzFormat);
@@ -96,7 +95,7 @@ var gAbsIncModal = createModal({}, gFormat); // modal group 3 // G90-91
 var sequenceNumber = 0;
 
 //specific section for Tangential Rotary Blade
-var c_rad = toRad(0);  // Current C axis position
+var c_rad = toRad(0);  // Current A axis position
 var isRapid = false;
 
 /**
@@ -112,52 +111,11 @@ var isRapid = false;
   
   // Angle between segments is larger than maximum angle. Lift blade, rotate, and plunge back down
   if (Math.abs(delta_rad) > toRad(getProperty("liftAtCorner"))) { 
-    
-    // Original
-    writeComment("Current angle: " + toDeg(c_rad) + ", Target angle: " + toDeg(target_rad))
-    
     moveUp();
     gMotionModal.reset();
     writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
     moveDown();
     c_rad = target_rad;
-    
-    
-    
-    /**
-    // Quadrant aware code to minimize excess rotations
-    
-    writeComment("Current angle: " + toDeg(c_rad) + ", Target angle: " + toDeg(target_rad))
-    
-    moveUp();
-    gMotionModal.reset();
-    gAbsIncModal.reset();
-
-    // Minimize excess rotations
-    if (c_rad < Math.PI) {
-        if (target_rad > (c_rad + Math.PI)) {
-            // Relative move to -(c_rad+(2*Math.PI-target_rad))
-            writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(-(c_rad+(2*Math.PI-target_rad)))))
-            writeBlock(gAbsIncModal.format(90))
-        } else {
-            // Absolute move to target_rad
-            writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
-        }
-    } else {
-        if (target_rad < (c_rad - Math.PI)) {
-            // Relative move to +(target_rad+(2*Math.PI-c_rad))
-            writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg((target_rad+(2*Math.PI-c_rad)))))
-            writeBlock(gAbsIncModal.format(90))
-        } else {
-            // Absolute move to target_rad
-            writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
-        }
-    }
-    
-    moveDown();
-    c_rad = target_rad;
-    */
-    
   }
   else {  // Angle between segments is smaller than maximum angle. Rotate blade in material
     writeBlock(gMotionModal.format(1), cOutput.format(toDeg(target_rad)));
@@ -253,7 +211,12 @@ function onLinear(_x, _y, _z, feed) {
   var direction = Vector.diff(target,start);
   //compute orientation of the upcoming segment
   var orientation_rad = direction.getXYAngle();
-  updateC(orientation_rad);
+  
+  // Gate C-axis rotation if move is purely in Z.
+  if (start.x != _x && start.y != _y) {
+    updateC(orientation_rad);
+  }
+  
   var x = xOutput.format(_x);
   var y = yOutput.format(_y);
   if (x || y) {
@@ -290,8 +253,6 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
     var start = getCurrentPosition();
     var OD = start;  //vector at current position
     
-    // This can probably be replaced with getCircularCenter()
-    //var OC = new Vector(cx,cy,cz);  //vector at arc center
     var OC = getCircularCenter();
     
     var Z = new Vector(0,0,clockwise ? 1 : -1);  //vector normal to XY plane
@@ -299,12 +260,7 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
     var tangent = Vector.cross(CD,Z); //tangent vector to circle in the direction of motion
     var start_dir = tangent.getXYAngle(); //direction of the motion at starting point
     updateC(start_dir);
-    
-    // The next three lines can probably be replaced with getCircularSweep()
-    //var OA = new Vector(x,y,z);  //vector from origin to arrival
-    //var CA = Vector.diff(OA,OC); 
-    //var angle = Vector.getAngle(CA,CD);
-    //writeComment("Calculated sweep: " + toDeg(angle) + ". Fusion sweep: " + toDeg(arcAngle));
+
     
     if(clockwise){
       c_rad -= arcAngle
