@@ -129,6 +129,71 @@ var isRapid = false;
   }
   
  }
+ 
+ /**
+ Update C position for Tangential Rotary Blade
+ */
+ function updateCminRotation(target_rad) {
+  var delta_rad = (target_rad-c_rad) //% (2*Math.PI)
+
+  //next segment is colinear with current segment. Do nothing
+  if (delta_rad % (2*Math.PI) == 0){
+    return;
+  }
+  
+  // Angle between segments is larger than maximum angle. Lift blade, rotate, and plunge back down
+  if (Math.abs(delta_rad) > toRad(getProperty("liftAtCorner"))) { 
+    moveUp();
+
+    // Normalize current and target direction
+    var currentNormalized = Math.abs(((c_rad % (2*Math.PI)) + (2*Math.PI)) % (2*Math.PI));
+    var targetNormalized = Math.abs(((target_rad % (2*Math.PI)) + (2*Math.PI)) % (2*Math.PI));
+    
+    writeComment("Curr: " + toDeg(c_rad) + " Targ: " + toDeg(target_rad));
+    writeComment("CurrNorm: " + toDeg(currentNormalized) + " TargNorm: " + toDeg(targetNormalized));
+    
+    if (delta_rad > Math.PI) {
+        if (currentNormalized <= Math.PI) {
+            if (targetNormalized > (currentNormalized + Math.PI)) {
+                writeComment("P1");
+                gAbsIncModal.reset();
+                writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(-(currentNormalized+(2*Math.PI-targetNormalized)))));
+                writeBlock(gAbsIncModal.format(90));
+            } else {
+                writeComment("P2");
+                gMotionModal.reset();
+                writeBlock(gMotionModal.format(0), cOutput.format(toDeg(targetNormalized)));
+            }
+        } else {
+            if (targetNormalized < (currentNormalized - Math.PI)) {
+                writeComment("P3");
+                gAbsIncModal.reset();
+                writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg((targetNormalized+(2*Math.PI-currentNormalized)))));
+                writeBlock(gAbsIncModal.format(90));
+            } else {
+                writeComment("P4");
+                gMotionModal.reset();
+                writeBlock(gMotionModal.format(0), cOutput.format(toDeg(targetNormalized)));
+            }
+        }
+        // Force C-axis reset to commanded position
+        writeBlock(gAbsIncModal.format(92), cOutput.format(toDeg(target_rad)));
+        
+    } else {
+        writeComment("P5");
+        gMotionModal.reset();
+        writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
+    }
+    
+    moveDown();
+    c_rad = target_rad;
+  }
+  else {  // Angle between segments is smaller than maximum angle. Rotate blade in material
+    writeBlock(gMotionModal.format(1), cOutput.format(toDeg(target_rad)));
+    c_rad = target_rad;
+  }
+  
+ }
 
 /**
  Move cutter up to retract height
@@ -220,7 +285,7 @@ function onLinear(_x, _y, _z, feed) {
   
   // Gate C-axis rotation if move is purely in Z.
   if (!(start.x == _x && start.y == _y)) {
-    updateC(orientation_rad);
+    updateCminRotation(orientation_rad);
   }
   
   var x = xOutput.format(_x);
@@ -265,7 +330,7 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
     var CD = Vector.diff(OD,OC); //OD-OC = CO+OD = CD -> radius vector from arc center to current position
     var tangent = Vector.cross(CD,Z); //tangent vector to circle in the direction of motion
     var start_dir = tangent.getXYAngle(); //direction of the motion at starting point
-    updateC(start_dir);
+    updateCminRotation(start_dir);
 
     
     if(clockwise){
