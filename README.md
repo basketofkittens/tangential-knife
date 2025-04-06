@@ -12,13 +12,14 @@ Usage/Notes:
 * Remove lead-in, lead-out, and chamfer options from the toolpath settings.
 * The G02/G03 feeds are a calculation hack to provide a rotary axis feedrate equivalent to the commanded linear feedrate.
     * There is probably a more graceful way to handle this (eg. inverse time), but this works for me.
+    * This feed conversion can be overwritten using a Post Processor Options flag.
 * The code can attempt to force G0 rapid moves that are blocked in the free version of Fusion. This is not exhaustively tested, so proceed with caution.
 
 Potential improvements:
 * Remove excess rotations
     * Rotation is bounded to (-360, 360) and the control will rotate "linearly" to a new angle. This can cause real-life rotations of greater than 360 degrees.
-    * It is important to maintain the sign of the final position. Current idea:
+    * It seems important to maintain the sign and magnitude of the final position. Current idea:
         * Find the shortest rotation to (commandedPosition%360)
-        * If the sign of the resultant position differs from commandedPosition, then manually flip the sign.
+        * If the resultant position differs from the commanded position, update the C-axis position (eg. G92)
 * Fix initial position move to be G0 and not G1
     * Not sure I care enough to fix this

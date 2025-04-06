@@ -38,33 +38,39 @@ allowedCircularPlanes = 1 << PLANE_XY;
 // user-defined properties
 properties = {
   liftAtCorner: {
-      title:"Lift Angle", 
-      description:"Maximum angle at which the blade is turned in the material. If the angle is larger the blade is lifted and rotated.", 
-      type:"angle", 
+      title: "Lift Angle", 
+      description: "Maximum angle at which the blade is turned in the material. If the angle is larger the blade is lifted and rotated.", 
+      type: "angle", 
       value: 0.5
   },
   minLinearRadius: {
-      title:"Minimum Radius", 
-      description:"Absolute minimum radius allowable. Radii smaller than this will be clipped entirely with a linear move.", 
-      type:"number", 
+      title: "Minimum Radius", 
+      description: "Absolute minimum radius allowable. Radii smaller than this will be clipped entirely with a linear move.", 
+      type: "number", 
       value:5
   },
   minArcRadius: {
-      title:"Minimum Arc Radius", 
-      description:"Radii smaller than this will be approximated with discrete linear moves.", 
-      type:"number", 
+      title: "Minimum Arc Radius", 
+      description: "Radii smaller than this will be approximated with discrete linear moves.", 
+      type: "number", 
       value:10
   },
   usePostTolerance: {
-      title:"Use global tolerance", 
-      description:"Override operation-specific tolerances for linearizations.", 
-      type:"boolean", 
+      title: "Use Global Tolerance", 
+      description: "Override operation-specific tolerances for linearizations.", 
+      type: "boolean", 
       value: true
   },
   forceRapids: {
-      title:"Force Rapid Moves", 
-      description:"Un-nerf the free version of Fusion by trying to force G0 rapid moves instead of G1 rapid moves. USE AT YOUR OWN RISK.", 
-      type:"boolean", 
+      title: "Force Rapid Moves", 
+      description: "Un-nerf the free version of Fusion by trying to force G0 rapid moves instead of G1 rapid moves. USE AT YOUR OWN RISK.", 
+      type: "boolean", 
+      value: true
+  },
+  useCalcAngularFeed: {
+      title: "Use calculated angular feed",
+      description: "Enabling this will compute an angular feedrate for G02/03 moves that is equivalent to the specified linear feedrate. Used for controls that feed rotary axes in angle/time rather than distance/time (eg. Centroid Acorn).",
+      type: "boolean",
       value: true
   }
 };
@@ -213,7 +219,7 @@ function onLinear(_x, _y, _z, feed) {
   var orientation_rad = direction.getXYAngle();
   
   // Gate C-axis rotation if move is purely in Z.
-  if (start.x != _x && start.y != _y) {
+  if (!(start.x == _x && start.y == _y)) {
     updateC(orientation_rad);
   }
   
@@ -269,9 +275,12 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
       c_rad += arcAngle
     }
     
-    var angularFeedrate = calcAngularFeed(arcLength, arcAngle, feed);
+    var outputFeed = feed;
+    if (getProperty("useCalcAngularFeed")) {
+        outputFeed = calcAngularFeed(arcLength, arcAngle, feed);
+    }
     
-    writeBlock(gMotionModal.format(clockwise ? 2 : 3), xOutput.format(x), yOutput.format(y), cOutput.format(toDeg(c_rad)), iOutput.format(cx - start.x, 0), jOutput.format(cy - start.y, 0), feedOutput.format(angularFeedrate));
+    writeBlock(gMotionModal.format(clockwise ? 2 : 3), xOutput.format(x), yOutput.format(y), cOutput.format(toDeg(c_rad)), iOutput.format(cx - start.x, 0), jOutput.format(cy - start.y, 0), feedOutput.format(outputFeed));
     break;
   default:
     var t = tolerance;
@@ -290,6 +299,7 @@ function calcAngularFeed(arcLength, arcAngle, linearFeed) {
 
 function onSectionEnd() {
   moveUp();
+  writeBlock(gFormat.format(0),cOutput.format(0));
 }
 
 function onClose() {
