@@ -78,6 +78,12 @@ properties = {
       description: "Enable this to minimize superfluous C-axis rotations.",
       type: "boolean",
       value: true
+  },
+  printDebug: {
+      title: "Print Debug Strings",
+      description: "Enable this to print additional debug information.",
+      type: "boolean",
+      value: false
   }
 };
 
@@ -152,35 +158,37 @@ var isRapid = false;
     moveUp();
 
     // Normalize current and target direction
+    // Javascript "%" is remainder, not modulo. This calc performs a true modulo.
     var currentNormalized = Math.abs(((c_rad % (2*Math.PI)) + (2*Math.PI)) % (2*Math.PI));
     var targetNormalized = Math.abs(((target_rad % (2*Math.PI)) + (2*Math.PI)) % (2*Math.PI));
+    
     var deltaNormalized = targetNormalized - currentNormalized;
     
-    //writeComment("Curr: " + toDeg(c_rad) + " Targ: " + toDeg(target_rad));
-    //writeComment("CurrNorm: " + toDeg(currentNormalized) + " TargNorm: " + toDeg(targetNormalized));
+    writeDebug("Curr: " + toDeg(c_rad) + " Targ: " + toDeg(target_rad));
+    writeDebug("CurrNorm: " + toDeg(currentNormalized) + " TargNorm: " + toDeg(targetNormalized));
     
     if (Math.abs(delta_rad) > Math.PI) {
         if (Math.abs(deltaNormalized) > Math.PI) {
             gAbsIncModal.reset();
             if (currentNormalized < targetNormalized) {
-                //writeComment("Zero cross, current near 0");
+                writeDebug("Zero cross, current nearer 0");
                 // Current position is closer to 0, move in the negative direction
                 writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(-(currentNormalized + (2*Math.PI - targetNormalized)))));
             } else {
-                //writeComment("Zero cross, target near 0");
+                writeDebug("Zero cross, target nearer 0");
                 // Target position is closer to 0, move in the positive direction
                 writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg((targetNormalized+(2*Math.PI-currentNormalized)))));
             }
         } else {
-            //writeComment("Inside 180 in normalized coords");
+            writeDebug("Inside 180 in normalized coords");
             // Relative rotation is less than 180 degrees
             writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(deltaNormalized)));
         }
-        //writeBlock(gAbsIncModal.format(90));
+        writeDebug(gAbsIncModal.format(90));
         // Force C-axis reset to commanded position
         writeBlock(gAbsIncModal.format(92), cOutput.format(toDeg(target_rad)));
     } else {
-        //writeComment("Inside 180 in absolute coords");
+        writeDebug("Inside 180 in absolute coords");
         // Absolute rotation is less than 180 degrees
         gMotionModal.reset();
         writeBlock(gMotionModal.format(0), cOutput.format(toDeg(target_rad)));
@@ -231,6 +239,15 @@ function writeBlock() {
 */
 function writeComment(text) {
   writeln("(" + text + ")");
+}
+
+/**
+  Output a debug message.
+*/
+function writeDebug(text) {
+    if (getProperty("printDebug")) {
+        writeComment(text);
+    }
 }
 
 function onOpen() {
