@@ -184,7 +184,7 @@ var isRapid = false;
             // Relative rotation is less than 180 degrees
             writeBlock(gAbsIncModal.format(91), cOutput.format(toDeg(deltaNormalized)));
         }
-        writeDebug(gAbsIncModal.format(90));
+        writeBlock(gAbsIncModal.format(90));
         // Force C-axis reset to commanded position
         writeBlock(gAbsIncModal.format(92), cOutput.format(toDeg(target_rad)));
     } else {
